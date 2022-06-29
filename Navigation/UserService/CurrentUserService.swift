@@ -8,17 +8,18 @@
 
 import UIKit
 
-// MARK: - 3.
 class CurrentUserService: UserService {
     
-    let currentUser = User(userName: "Hacker Kitten", userAvatar: #imageLiteral(resourceName: "cat"))
+    let savedUser = User(userEmail: "h4ckerk1tten@mail.com", userName: "Hacker Kitten", userAvatar: #imageLiteral(resourceName: "cat"))
+    // Password: Abc124
 
-    func currentUser(userName: String) -> User {
+    func currentUser(userEmail: String) -> User {
         
-        if userName == currentUser.userName {
-            return currentUser
+        if userEmail == savedUser.userEmail {
+            return savedUser
         } else {
-            return User(userName: "", userAvatar: UIImage())
+            let userNameFromEmail = userEmail.components(separatedBy: "@").first
+            return User(userEmail: userEmail, userName: userNameFromEmail ?? userEmail, userAvatar: UIImage())
         }
     }
     
