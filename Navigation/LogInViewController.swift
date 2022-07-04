@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import FirebaseAuth
 
 class LogInViewController: UIViewController {
     
@@ -25,26 +26,26 @@ class LogInViewController: UIViewController {
     }()
     
     // Login Field
-    private lazy var loginTextFiel: UITextField = {
-        let login = UITextField()
-        login.textColor = .black
-        login.font = UIFont.systemFont(ofSize: 16, weight: .regular)
-        login.tintColor = UIColor(named: "ColorSet")
-        login.autocapitalizationType = .none
-        login.placeholder = "Email or phone"
-        login.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 10, height: 50))
-        login.leftViewMode = .always
+    private lazy var logInTextField: UITextField = {
+        let logIn = UITextField()
+        logIn.textColor = .black
+        logIn.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        logIn.tintColor = UIColor(named: "ColorSet")
+        logIn.autocapitalizationType = .none
+        logIn.placeholder = "Email"
+        logIn.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 10, height: 50))
+        logIn.leftViewMode = .always
     
-        login.layer.cornerRadius = 10
+        logIn.layer.cornerRadius = 10
 
-        login.backgroundColor = .systemGray6
+        logIn.backgroundColor = .systemGray6
     
-        login.translatesAutoresizingMaskIntoConstraints = false
-        return login
+        logIn.translatesAutoresizingMaskIntoConstraints = false
+        return logIn
     }()
     
     // Password Field
-    private lazy var passwordTextFiel: UITextField = {
+    private lazy var passwordTextField: UITextField = {
         let password = UITextField()
         password.textColor = .black
         password.font = UIFont.systemFont(ofSize: 16, weight: .regular)
@@ -72,15 +73,15 @@ class LogInViewController: UIViewController {
         return spacer
     }()
     
-    private lazy var  loginAndPasswordStackView: UIStackView = {
+    private lazy var  logInAndPasswordStackView: UIStackView = {
         let loginPasswordStack = UIStackView()
         loginPasswordStack.axis = .vertical
         loginPasswordStack.spacing = 0
         loginPasswordStack.distribution = .fillProportionally
         
-        loginPasswordStack.addArrangedSubview(loginTextFiel)
+        loginPasswordStack.addArrangedSubview(logInTextField)
         loginPasswordStack.addArrangedSubview(spacerForStackView)
-        loginPasswordStack.addArrangedSubview(passwordTextFiel)
+        loginPasswordStack.addArrangedSubview(passwordTextField)
         
         spacerForStackView.widthAnchor.constraint(equalTo: loginPasswordStack.widthAnchor, multiplier: 1).isActive = true
 
@@ -102,7 +103,22 @@ class LogInViewController: UIViewController {
         button.setTitleColor(.white, for: .normal)
         button.setTitleColor(.darkGray, for: .selected)
         button.setTitleColor(.darkGray, for: .highlighted)
-        button.addTarget(self, action: #selector(logInButtonSuccessed), for: .touchUpInside)
+        button.addTarget(self, action: #selector(logInButtonPressed), for: .touchUpInside)
+        
+        button.translatesAutoresizingMaskIntoConstraints = false
+        return button
+    }()
+    
+    // Sign In Button
+    private lazy var signInButton: UIButton  = {
+        let button = UIButton(type: .system)
+        button.backgroundColor = .darkGray
+        button.layer.cornerRadius = 10
+        button.setTitle("Sign In", for: .normal)
+        button.setTitleColor(.white, for: .normal)
+        button.setTitleColor(.darkGray, for: .selected)
+        button.setTitleColor(.darkGray, for: .highlighted)
+        button.addTarget(self, action: #selector(signInButtonPressed), for: .touchUpInside)
         
         button.translatesAutoresizingMaskIntoConstraints = false
         return button
@@ -123,30 +139,100 @@ class LogInViewController: UIViewController {
         NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillHideNotification, object: nil)
     }
     
-    // MARK: - 4.
-    @objc private func logInButtonSuccessed() {
-
-        let userName = loginTextFiel.text
-        // MARK: - 7.
+    private func logInButtonSuccessed(enteredUserEmail: String) {
         #if DEBUG
         let userService = TestUserService()
         #else
         let userService = CurrentUserService()
         #endif
         
-        if let existingUserName = userName {
-            let profileViewController = ProfileViewController(userService: userService, userName: existingUserName)
-            if userService.currentUser(userName: existingUserName).userAvatar != UIImage() {
-                navigationController?.pushViewController(profileViewController, animated: true)
-            } else {
-                let alertController = UIAlertController(title: "Неверный логин", message: "Побробуйте ещё раз", preferredStyle: .alert)
-                let okAction = UIAlertAction(title: "ОК", style: .default) { _ in
-                print("Неверный логин был введен")
-                }
-                alertController.addAction(okAction)
-                self.present(alertController, animated: true, completion: nil)
+        let profileViewController = ProfileViewController(userService: userService, userEmail: enteredUserEmail)
+        navigationController?.pushViewController(profileViewController, animated: true)
+    }
+    
+    @objc private func logInButtonPressed() {
+        if let userEmail = logInTextField.text {
+            if userEmail.isEmpty {
+                // MARK: - S1. b) (1)
+                enterEmailAlert()
+                return
             }
+            
+            if let userPassword = passwordTextField.text {
+                if userPassword.isEmpty {
+                    // MARK: - S1. b) (2)
+                    enterPasswordAlert()
+                    return
+                }
+
+                // MARK: - S1. c) & d)
+                Auth.auth().signIn(withEmail: userEmail, password: userPassword) { [weak self] authResult, error in
+                    guard let strongSelf = self else { return }
+                    guard error == nil else { return strongSelf.displayError(error) }
+            
+                    strongSelf.logInButtonSuccessed(enteredUserEmail: userEmail)
+                }
+                
+            } else {
+                enterPasswordAlert()
+            }
+            
+        } else {
+            enterEmailAlert()
         }
+    }
+    
+    @objc private func signInButtonPressed() {
+        if let userEmail = logInTextField.text {
+            if userEmail.isEmpty {
+                enterEmailAlert()
+                return
+            }
+            
+            if let userPassword = passwordTextField.text {
+                if userPassword.isEmpty {
+                    enterPasswordAlert()
+                    return
+                }
+                
+                // MARK: - S1. a)
+                Auth.auth().createUser(withEmail: userEmail, password: userPassword) { [weak self] authResult, error in
+                    guard let strongSelf = self else { return }
+                    guard error == nil else { return strongSelf.displayError(error) }
+            
+                    let alertController = UIAlertController(title: "Success!", message: "The new user has been created successfully. Now use your email and password to enter the application", preferredStyle: .alert)
+                    let okAction = UIAlertAction(title: "ОК", style: .default) { _ in
+                    print("No login been texted")
+                    }
+                    alertController.addAction(okAction)
+                    strongSelf.present(alertController, animated: true, completion: nil)
+                }
+                
+            } else {
+                enterPasswordAlert()
+            }
+            
+        } else {
+            enterEmailAlert()
+        }
+    }
+    
+    func enterEmailAlert() {
+        let alertController = UIAlertController(title: "Who are you?", message: "Enter your email or register new account", preferredStyle: .alert)
+        let okAction = UIAlertAction(title: "ОК", style: .default) { _ in
+        print("No login been texted")
+        }
+        alertController.addAction(okAction)
+        self.present(alertController, animated: true, completion: nil)
+    }
+    
+    func enterPasswordAlert() {
+        let alertController = UIAlertController(title: "Password, please", message: "Enter your password", preferredStyle: .alert)
+        let okAction = UIAlertAction(title: "ОК", style: .default) { _ in
+        print("No password been texted")
+        }
+        alertController.addAction(okAction)
+        self.present(alertController, animated: true, completion: nil)
     }
     
     // MARK: Keyboard Actions
@@ -183,8 +269,9 @@ class LogInViewController: UIViewController {
         
         containerView.addSubviews(
             logoImageView,
-            loginAndPasswordStackView,
-            logInButton
+            logInAndPasswordStackView,
+            logInButton,
+            signInButton
         )
         
         let constraints = [
@@ -205,16 +292,20 @@ class LogInViewController: UIViewController {
             logoImageView.heightAnchor.constraint(equalToConstant: 100),
             logoImageView.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
             
-            loginAndPasswordStackView.topAnchor.constraint(equalTo: logoImageView.bottomAnchor, constant: 120),
-            loginAndPasswordStackView.heightAnchor.constraint(equalToConstant: 100),
-            loginAndPasswordStackView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
-            loginAndPasswordStackView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
+            logInAndPasswordStackView.topAnchor.constraint(equalTo: logoImageView.bottomAnchor, constant: 120),
+            logInAndPasswordStackView.heightAnchor.constraint(equalToConstant: 100),
+            logInAndPasswordStackView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
+            logInAndPasswordStackView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
             
-            logInButton.topAnchor.constraint(equalTo: loginAndPasswordStackView.bottomAnchor, constant: 16),
+            logInButton.topAnchor.constraint(equalTo: logInAndPasswordStackView.bottomAnchor, constant: 16),
             logInButton.heightAnchor.constraint(equalToConstant: 50),
             logInButton.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
             logInButton.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
-            logInButton.bottomAnchor.constraint(equalTo: loginAndPasswordStackView.bottomAnchor, constant: 66)
+            
+            signInButton.topAnchor.constraint(equalTo: logInButton.bottomAnchor, constant: 16),
+            signInButton.heightAnchor.constraint(equalToConstant: 50),
+            signInButton.leadingAnchor.constraint(equalTo: logInButton.leadingAnchor),
+            signInButton.trailingAnchor.constraint(equalTo: logInButton.trailingAnchor)
         ]
         
         NSLayoutConstraint.activate(constraints)
@@ -225,4 +316,19 @@ extension UIView {
     func addSubviews(_ views: UIView...) {
         views.forEach { addSubview($0) }
     }
+}
+
+extension UIViewController {
+  public func displayError(_ error: Error?, from function: StaticString = #function) {
+    guard let error = error else { return }
+    print("ⓧ Error in \(function): \(error.localizedDescription)")
+      let message = "\(error.localizedDescription)\n\n Please, try again!"
+    let errorAlertController = UIAlertController(
+      title: "Error",
+      message: message,
+      preferredStyle: .alert
+    )
+    errorAlertController.addAction(UIAlertAction(title: "OK", style: .default))
+    present(errorAlertController, animated: true, completion: nil)
+  }
 }

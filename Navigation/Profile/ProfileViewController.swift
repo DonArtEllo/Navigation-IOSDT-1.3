@@ -8,6 +8,7 @@
 
 import UIKit
 import StorageService
+import FirebaseAuth
 
 class ProfileViewController: UIViewController {
     
@@ -15,7 +16,7 @@ class ProfileViewController: UIViewController {
     private var animationWasShownMark = true
     private let reusedID = "cellID"
     
-    private let userName: String
+    private let userEmail: String
     private let userService: UserService
     
     private let profilePostsTableView = UITableView(frame: .zero, style: .grouped)
@@ -58,13 +59,13 @@ class ProfileViewController: UIViewController {
         return crossImage
     }()
     
-    // MARK: - 4. / Init
-    init(userService: UserService, userName: String) {
+    // MARK: - Init
+    init(userService: UserService, userEmail: String) {
         
         self.userService = userService
-        self.userName = userName
+        self.userEmail = FirebaseAuth.Auth.auth().currentUser?.email ?? userEmail
                 
-        self.avatarImageView.image = userService.currentUser(userName: userName).userAvatar
+        self.avatarImageView.image = userService.currentUser(userEmail: FirebaseAuth.Auth.auth().currentUser?.email ?? userEmail).userAvatar
         
         super.init(nibName: nil, bundle: nil)
     }
@@ -89,6 +90,12 @@ class ProfileViewController: UIViewController {
         
         fullscreenBackgroundView.alpha = 0
         crossImage.alpha = 0
+    }
+    
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        
+        try? Auth.auth().signOut()
     }
     
     override func viewWillLayoutSubviews() {
@@ -410,8 +417,7 @@ extension ProfileViewController: UITableViewDelegate, UITableViewDataSource {
     func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
         let headerView = self.headerView
 
-        // MARK: - 5.
-        let user = userService.currentUser(userName: userName)
+        let user = userService.currentUser(userEmail: userEmail)
         
         headerView.avatarImageView.image = user.userAvatar
         headerView.fullNameLabel.text = user.userName
